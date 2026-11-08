@@ -18,41 +18,85 @@ const videoEmbed = (url: string) => {
   if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
   return url
 }
+
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/**
+ * 渲染一行的行内 marks，返回 HTML 字符串（frontmatter 里不能写 JSX）。
+ * 先套 decorator，最后再包 <a> —— 反过来会被内层标签覆盖掉链接。
+ */
+const renderInline = (block: any): string =>
+  (block.children ?? [])
+    .map((child: any) => {
+      let html = esc(child.text ?? '')
+      const marks: string[] = child.marks ?? []
+
+      for (const mark of marks) {
+        if (mark === 'strong') html = `<strong>${html}</strong>`
+        else if (mark === 'em') html = `<em>${html}</em>`
+        else if (mark === 'underline') html = `<u>${html}</u>`
+        else if (mark === 'strike-through') html = `<s>${html}</s>`
+        else if (mark === 'code') html = `<code>${html}</code>`
+      }
+
+      for (const mark of marks) {
+        const def = (block.markDefs ?? []).find((d: any) => d._key === mark)
+        if (def?._type === 'link' && def.href) {
+          const target = def.blank ? ' target="_blank" rel="noopener noreferrer"' : ''
+          html = `<a href="${esc(def.href)}"${target}>${html}</a>`
+        }
+      }
+
+      return html
+    })
+    .join('')
+
+/**
+ * 把连续的 listItem 块聚合成一个 <ul>/<ol>。
+ * 不能把每个块单独渲染成 <li> —— HTML 里 <li> 必须有 <ul>/<ol> 父元素，
+ * 裸露的 <li> 会让浏览器各自猜语义，缩进和序号都会乱。
+ */
+type Segment =
+  | { kind: 'single'; block: any }
+  | { kind: 'list'; ordered: boolean; blocks: any[] }
+
+const segments: Segment[] = []
+for (const block of value ?? []) {
+  const listItem = block?.listItem
+  if (listItem === 'bullet' || listItem === 'number') {
+    const ordered = listItem === 'number'
+    const last = segments[segments.length - 1]
+    if (last && last.kind === 'list' && last.ordered === ordered) {
+      last.blocks.push(block)
+    } else {
+      segments.push({ kind: 'list', ordered, blocks: [block] })
+    }
+  } else {
+    segments.push({ kind: 'single', block })
+  }
+}
 ---
 
 {
-  value.map((block: any) => {
-    if (block._type === 'block') {
-      const children = (block.children ?? []).map((child: any) => {
-        let text: any = child.text ?? ''
-        const marks: string[] = child.marks ?? []
-        for (const mark of marks) {
-          const def = (block.markDefs ?? []).find((d: any) => d._key === mark)
-          if (def?._type === 'link') {
-            text = (
-              <a href={def.href} target={def.blank ? '_blank' : undefined} rel={def.blank ? 'noopener noreferrer' : undefined}>
-                {text}
-              </a>
-            )
-          } else if (mark === 'strong') text = <strong>{text}</strong>
-          else if (mark === 'em') text = <em>{text}</em>
-          else if (mark === 'underline') text = <u>{text}</u>
-          else if (mark === 'strike-through') text = <s>{text}</s>
-          else if (mark === 'code') text = <code>{text}</code>
-        }
-        return text
-      })
+  segments.map((seg) => {
+    if (seg.kind === 'list') {
+      const inner = seg.blocks.map((b) => `<li>${renderInline(b)}</li>`).join('')
+      const tag = seg.ordered ? 'ol' : 'ul'
+      return <Fragment set:html={`<${tag}>${inner}</${tag}>`} />
+    }
 
+    const block = seg.block
+
+    if (block._type === 'block') {
       const style = block.style ?? 'normal'
-      if (style === 'h2') return <h2>{children}</h2>
-      if (style === 'h3') return <h3>{children}</h3>
-      if (style === 'blockquote') return <blockquote>{children}</blockquote>
-      if (block.listItem === 'bullet') return <li>{children}</li>
-      if (block.listItem === 'number') return <li>{children}</li>
-      return <p>{children}</p>
+      const inner = renderInline(block)
+      const tag = style === 'h2' ? 'h2' : style === 'h3' ? 'h3' : style === 'blockquote' ? 'blockquote' : 'p'
+      return <Fragment set:html={`<${tag}>${inner}</${tag}>`} />
     }
 
     if (block._type === 'imageWithAlt') {
+      const caption = t(block.caption, locale)
       return (
         <figure>
           <img
@@ -63,7 +107,7 @@ const videoEmbed = (url: string) => {
             loading="lazy"
             decoding="async"
           />
-          {t(block.caption, locale) && <figcaption class="muted">{t(block.caption, locale)}</figcaption>}
+          {caption && <figcaption class="muted">{caption}</figcaption>}
         </figure>
       )
     }
@@ -83,11 +127,7 @@ const videoEmbed = (url: string) => {
     }
 
     if (block._type === 'callout') {
-      return (
-        <aside class:list={['callout', block.tone ?? 'info']}>
-          {t(block.body, locale)}
-        </aside>
-      )
+      return <aside class:list={['callout', block.tone ?? 'info']}>{t(block.body, locale)}</aside>
     }
 
     return null
@@ -102,6 +142,7 @@ const videoEmbed = (url: string) => {
     margin: 1.4em 0; padding-left: 18px; border-left: 2px solid var(--line);
     color: var(--muted); font-style: italic;
   }
+  :global(ul), :global(ol) { margin: 0 0 1.1em; padding-left: 1.4em; }
   :global(li) { margin: .3em 0; }
   :global(figure) { margin: 1.8em 0; }
   :global(figure img) { width: 100%; border-radius: 2px; }
@@ -114,4 +155,8 @@ const videoEmbed = (url: string) => {
   }
   :global(.callout.warn) { border-left-color: #d9a441; background: #fdf8ec; }
   :global(.callout.success) { border-left-color: #5b9c6a; background: #f2f8f3; }
+  :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .9em; background: #f2f2ef; padding: 1px 5px; border-radius: 3px;
+  }
 </style>
