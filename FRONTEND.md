@@ -307,6 +307,16 @@ export const ui = {
 
 **加新文案时两份都要加**，否则 TypeScript 的 `as const` 会报错（这也是好事，强制同步）。
 
+### 4.4 灯带规格（product.ledStripSpec）
+
+商品类型选「灯带」时有 12 个规格字段。它们**不是** `{ zh, en }` 双语对象——存的是型号、枚举、数字，只有标签和枚举文案需要本地化，映射集中在 `src/lib/ledStrip.ts`：
+
+- `buildLedStripRows(spec, locale)` 返回 `{ label, value }[]`，顺序固定 12 项，缺失字段整行跳过，无 spec 返回 `[]`
+- `ledType` 必须走 `magic → 幻彩/Magic`、`dotControl → 点控/Dot-control` 映射，不要直接输出枚举值
+- `colorTemps` / `certifications` 是数组，聚合成一行（中文顿号、英文逗号）
+
+`src/components/TechSpecs.astro` 只负责排版，判断全在 `ledStrip.ts`。GROQ 侧必须显式投影 `ledStripSpec{...}`——object 类型靠 `...` 扩散在字段改名时会静默丢数据。
+
 ---
 
 ## 五、图片处理
