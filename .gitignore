@@ -25,3 +25,9 @@ Thumbs.db
 # astro
 .vercel/
 .netlify/
+
+# 截图预览（不参与部署）
+preview/
+
+# tsc 增量缓存
+*.tsbuildinfo
