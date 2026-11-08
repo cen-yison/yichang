@@ -1,6 +1,8 @@
 #!/bin/bash
-# 内容变更 → 构建 → 发布到 Netlify，全程不需要 Netlify 的 GitHub 集成
+# 内容变更 → 构建 → 发布到 Netlify，全程不依赖 Netlify 的 Git 集成
 # 由 cron 定期跑；Sanity 内容没变化时立即退出，不浪费构建时间。
+#
+# 凭据从 /root/.yichang-deploy.env 读取（权限 600），绝不写进本文件 —— 本文件会进公开 git 仓库。
 set -uo pipefail
 
 export PATH=/opt/node22/bin:$PATH
@@ -8,28 +10,53 @@ cd /root/sanity-astro || exit 1
 
 STATE_FILE=/root/sanity-astro/.last-content-hash
 LOG=/root/sanity-astro/deploy.log
-NFT="nfp_pvHi49CbpVhA5QnHWcqzcKkDQx7f2DoC1d88"
-SITE_ID="e8d67507-e985-4c15-827e-cf31377b2318"
-SITE_URL="https://yichang-store.netlify.app"
+
+# 日志超过 1MB 就轮转，只留上一份
+if [ -f "$LOG" ] && [ "$(stat -c%s "$LOG")" -gt 1048576 ]; then
+  mv -f "$LOG" "$LOG.1"
+fi
 
 log() { echo "[$(date '+%F %T')] $*" >> "$LOG"; }
+
+# 并发锁：上一轮还在跑（构建 + 等部署最长约 6 分钟）就跳过，避免两轮重叠互相覆盖
+LOCK=/var/lock/yichang-deploy.lock
+if ! exec 9>"$LOCK" || ! flock -n 9; then
+  exit 0
+fi
+
+SECRETS=/root/.yichang-deploy.env
+if [ ! -f "$SECRETS" ]; then
+  log "ERROR: 缺少 $SECRETS"
+  exit 1
+fi
+# shellcheck disable=SC1090
+. "$SECRETS"
+
+if [ -z "${NFT:-}" ] || [ -z "${SITE_ID:-}" ]; then
+  log "ERROR: $SECRETS 里缺少 NFT 或 SITE_ID"
+  exit 1
+fi
+SITE_URL="${SITE_URL:-https://yichang-store.netlify.app}"
 
 # 1. 取 Sanity 内容的指纹（所有文档的 _id+_rev 排序后哈希）
 #    走 api.sanity.io 而不是 apicdn —— CDN 有分钟级缓存，会漏掉刚发布的修改
 #    dataset 是 public，匿名读即可，不需要 token
+#    注意：只能哈希 .result，不能哈希整个响应体 —— 响应里带 ms（查询耗时，每次不同），
+#    整个响应哈希会导致每轮指纹都变，内容没改也会不停重新构建部署。
 FINGERPRINT=$(curl -gsS --max-time 30 \
   --get --data-urlencode 'query=*[!(_id in path("drafts.**"))]|order(_id asc){_id,_rev}' \
   "https://vk38187i.api.sanity.io/v2024-01-01/data/query/production" \
+  | jq -cS '.result' \
   | sha256sum | cut -d' ' -f1)
 
-if [ -z "$FINGERPRINT" ]; then
+# 空结果 / jq 解析失败时上面的管道仍会产出「空串的哈希」，必须显式排除
+if [ -z "$FINGERPRINT" ] || ! printf '%s' "$FINGERPRINT" | grep -qE '^[0-9a-f]{64}$'; then
   log "ERROR: 无法读取 Sanity 内容指纹，跳过本轮"
   exit 1
 fi
 
 if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "$FINGERPRINT" ]; then
-  log "内容无变化，跳过 ($FINGERPRINT)"
-  exit 0
+  exit 0   # 静默跳过，避免每轮刷日志
 fi
 
 log "检测到内容变化 $FINGERPRINT，开始构建"
