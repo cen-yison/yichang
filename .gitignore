@@ -35,3 +35,8 @@ preview/
 # 本地临时打包
 deploy.zip
 site.zip
+
+# 部署状态
+.last-content-hash
+deploy.log
+site.zip

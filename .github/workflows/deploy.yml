@@ -1,0 +1,80 @@
+name: Build & Deploy to Netlify
+
+on:
+  push:
+    branches: [main]
+  # Sanity webhook 调这个，实现「发布内容 → 自动上线」
+  repository_dispatch:
+    types: [sanity-content-update]
+  workflow_dispatch:
+
+# 同一时间只跑一个部署，避免并发把线上覆盖成旧版本
+concurrency:
+  group: deploy-netlify
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.4'
+          cache: npm
+
+      # 不设 NODE_ENV=production，否则 npm ci 会跳过 devDependencies、类型检查跑不了
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # canonical / sitemap 的绝对地址；绑自定义域名后在仓库变量里改
+          SITE_URL: ${{ vars.SITE_URL || 'https://yichang-store.netlify.app' }}
+
+      # 用 Netlify REST API 直接发 zip，不依赖 Netlify 侧的 GitHub 集成，
+      # 也不需要 netlify-cli（它的依赖链在部分 npm 镜像上解析不出来）
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          set -euo pipefail
+          cd dist
+          zip -qr ../site.zip .
+          cd ..
+          echo "artifact: $(du -h site.zip | cut -f1)"
+
+          RESP=$(curl -sS -w '\n%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            -H "Content-Type: application/zip" \
+            --data-binary @site.zip \
+            "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys")
+
+          CODE=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "HTTP $CODE"
+          echo "$BODY"
+
+          if [ "$CODE" != "200" ] && [ "$CODE" != "201" ]; then
+            echo "::error::Netlify deploy failed (HTTP $CODE)"
+            exit 1
+          fi
+
+          DEPLOY_ID=$(echo "$BODY" | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Deployed: https://yichang-store.netlify.app" >> "$GITHUB_STEP_SUMMARY"
+
+      # 部署后回读一次，确认线上真返回 200 且内容是新构建的
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          for p in / /products/ /posts/ /product/clay-mug/ /en/; do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 --retry 5 --retry-delay 3 \
+              "https://yichang-store.netlify.app$p")
+            echo "$p -> $CODE"
+            [ "$CODE" = "200" ] || { echo "::error::$p returned $CODE"; exit 1; }
+          done
