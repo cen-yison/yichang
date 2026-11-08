@@ -31,3 +31,7 @@ preview/
 
 # tsc 增量缓存
 *.tsbuildinfo
+
+# 本地临时打包
+deploy.zip
+site.zip
