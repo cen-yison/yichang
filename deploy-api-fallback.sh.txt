@@ -1,7 +1,6 @@
 #!/bin/bash
 # 内容变更 → 构建 → 发布到 Netlify，全程不依赖 Netlify 的 Git 集成
 # 由 Git push 触发 Netlify 自动构建
-# 最后验证: git-deploy-130646
 # 由 cron 定期跑；Sanity 内容没变化时立即退出，不浪费构建时间。
 #
 # 凭据从 /root/.yichang-deploy.env 读取（权限 600），绝不写进本文件 —— 本文件会进公开 git 仓库。

@@ -40,3 +40,6 @@ site.zip
 .last-content-hash
 deploy.log
 site.zip
+
+# 已停用的手动部署脚本备份
+*.sh.txt
