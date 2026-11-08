@@ -1,0 +1,11 @@
+---
+// 静态构建：英文商品页
+import ProductDetail from '../../../views/ProductDetail.astro'
+import { getAllProductSlugs } from '../../../lib/queries'
+
+export async function getStaticPaths() {
+  const slugs = await getAllProductSlugs()
+  return slugs.map((slug) => ({ params: { slug } }))
+}
+---
+<ProductDetail />

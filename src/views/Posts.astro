@@ -1,0 +1,87 @@
+---
+import Base from '../layouts/Base.astro'
+import { getPosts } from '../lib/queries'
+import { t, localeFromPath, localePath, ui } from '../lib/i18n'
+import { imgUrl } from '../lib/sanity'
+
+const locale = localeFromPath(Astro.url.pathname)
+const dict = ui[locale]
+const posts = await getPosts()
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(locale === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+---
+
+<Base title={dict.nav.posts}>
+  <h1>{dict.nav.posts}</h1>
+  {posts.length === 0 ? (
+    <p class="muted">{dict.noPosts}</p>
+  ) : (
+    <div class="post-list">
+      {posts.map((p) => (
+        <article class="post-row">
+          <a href={localePath(`/posts/${p.slug.current}`, locale)}>
+            <div class="meta muted">
+              <time datetime={p.publishedAt}>{fmtDate(p.publishedAt)}</time>
+              {p.category && <span> · {t(p.category.title, locale)}</span>}
+              {p.readingMinutes && (
+                <span> · {p.readingMinutes} {locale === 'en' ? 'min read' : '分钟'}</span>
+              )}
+            </div>
+            <h2>{t(p.title, locale)}</h2>
+            {p.excerpt && <p class="muted">{t(p.excerpt, locale)}</p>}
+            {p.tags?.length ? (
+              <div class="tags">
+                {p.tags.map((tag) => (
+                  <span class="badge">{tag}</span>
+                ))}
+              </div>
+            ) : null}
+          </a>
+          {p.image && (
+            <a class="thumb" href={localePath(`/posts/${p.slug.current}`, locale)} tabindex="-1">
+              <img
+                src={imgUrl(p.image, { w: 480, h: 480 })}
+                srcset={[320, 480, 720].map((w) => `${imgUrl(p.image, { w })} ${w}w`).join(', ')}
+                sizes="(max-width:700px) 0px, 240px"
+                alt={t(p.image?.alt, locale) || t(p.title, locale)}
+                width="480"
+                height="480"
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+          )}
+        </article>
+      ))}
+    </div>
+  )}
+</Base>
+
+<style>
+  .post-list { display: flex; flex-direction: column; }
+  .post-row {
+    display: grid;
+    grid-template-columns: 1fr 240px;
+    gap: 40px;
+    padding: 36px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: start;
+  }
+  .post-row:first-child { padding-top: 24px; }
+  .post-row .meta { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .post-row h2 { margin: 8px 0 10px; font-size: 21px; }
+  .post-row p { margin: 0; font-size: 14px; max-width: 62ch; }
+  .post-row .tags { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .post-row .thumb img { aspect-ratio: 1/1; object-fit: cover; background: #f2f2ef; border-radius: 2px; }
+  .post-row a:hover h2 { opacity: .65; }
+  @media (max-width: 700px) {
+    .post-row { grid-template-columns: 1fr; gap: 16px; }
+    .post-row .thumb { order: -1; }
+    .post-row .thumb img { aspect-ratio: 16/9; }
+  }
+</style>

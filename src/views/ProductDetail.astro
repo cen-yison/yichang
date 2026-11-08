@@ -1,0 +1,212 @@
+---
+import Base from '../layouts/Base.astro'
+import { getProductBySlug } from '../lib/queries'
+import { t, localeFromPath, localePath, ui } from '../lib/i18n'
+import { imgUrl, formatPrice, minVariantPrice, totalStock } from '../lib/sanity'
+import PortableText from '../components/PortableText.astro'
+
+const locale = localeFromPath(Astro.url.pathname)
+const dict = ui[locale]
+const product = await getProductBySlug(Astro.params.slug ?? '')
+
+if (!product) {
+  return Astro.redirect(localePath('/products', locale), 302)
+}
+
+const price = product.hasVariants ? minVariantPrice(product.variants) : product.price
+const stock = product.hasVariants ? totalStock(product.variants) : (product.stock ?? 0)
+const soldOut = product.status === 'soldOut' || stock === 0
+const statusLabel = dict[product.status as keyof typeof dict] ?? ''
+const mainImage = product.images?.[0]
+const gallery = (product.images ?? []).slice(1)
+
+// SEO 回退链：seo.metaTitle → 标题；seo.metaDescription → 卖点一句话
+const metaTitle = t(product.seo?.metaTitle, locale) || t(product.title, locale)
+const metaDesc = t(product.seo?.metaDescription, locale) || t(product.shortDescription, locale)
+const ogImage = product.seo?.ogImage ?? mainImage
+---
+
+<Base title={metaTitle} description={metaDesc}>
+  {product.seo?.noIndex && <meta slot="head" name="robots" content="noindex,nofollow" />}
+
+  <nav class="muted" style="font-size:13px; margin-bottom:28px;">
+    <a href={localePath('/products', locale)}>{dict.nav.products}</a>
+    {product.category && (
+      <span> / {t(product.category.title, locale)}</span>
+    )}
+  </nav>
+
+  <div class="pdp">
+    <div class="gallery">
+      <div class="hero">
+        {mainImage ? (
+          <img
+            src={imgUrl(mainImage, { w: 1200, h: 1200 })}
+            srcset={[600, 900, 1200, 1600].map((w) => `${imgUrl(mainImage, { w })} ${w}w`).join(', ')}
+            sizes="(max-width:900px) 100vw, 55vw"
+            alt={t(mainImage.alt, locale) || t(product.title, locale)}
+            width="1200"
+            height="1200"
+            fetchpriority="high"
+            decoding="async"
+          />
+        ) : (
+          <div class="ph" />
+        )}
+      </div>
+      {gallery.length > 0 && (
+        <div class="thumbs">
+          {gallery.map((g: any) => (
+            <img
+              src={imgUrl(g, { w: 240, h: 240 })}
+              alt={t(g.alt, locale) || t(product.title, locale)}
+              width="240"
+              height="240"
+              loading="lazy"
+              decoding="async"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div class="info">
+      <h1>{t(product.title, locale)}</h1>
+      <div class="price-row">
+        <span class="price">{formatPrice(price, product.currency)}</span>
+        {product.hasVariants && <span class="muted" style="font-size:13px;"> {dict.from}</span>}
+        {product.compareAt && product.compareAt > (price ?? 0) && (
+          <s class="muted" style="margin-left:10px;">{formatPrice(product.compareAt, product.currency)}</s>
+        )}
+      </div>
+
+      <div style="margin: 12px 0 20px;">
+        <span class:list={['badge', { out: soldOut }]}>
+          {soldOut ? dict.soldOut : statusLabel}
+        </span>
+        {product.hasVariants && (
+          <span class="muted" style="font-size:12px; margin-left:10px;">
+            {product.variants?.length} {dict.variants} · {locale === 'en' ? 'stock' : '库存'} {stock}
+          </span>
+        )}
+      </div>
+
+      {product.shortDescription && (
+        <p style="font-size:15px;">{t(product.shortDescription, locale)}</p>
+      )}
+
+      {product.hasVariants && (
+        <div class="options">
+          {(product.options ?? []).map((opt: any) => (
+            <div style="margin-bottom:18px;">
+              <div class="opt-label">{t(opt.name, locale)}</div>
+              <div class="opt-values">
+                {(opt.values ?? []).map((v: any) => (
+                  <span class="opt-chip">{t(v.label, locale)}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button class="cta" disabled={soldOut}>
+        {soldOut ? dict.soldOut : dict.addToCart}
+      </button>
+
+      {product.shippingNote && (
+        <div class="note">
+          <strong>{dict.shipping}</strong>
+          <p class="muted" style="margin:4px 0 0;">{t(product.shippingNote, locale)}</p>
+        </div>
+      )}
+
+      {product.specs?.length > 0 && (
+        <div class="note">
+          <strong>{dict.specs}</strong>
+          <table class="specs">
+            <tbody>
+              {product.specs.map((row: any) => (
+                <tr>
+                  <th>{t(row.label, locale)}</th>
+                  <td>{t(row.value, locale)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+
+  {product.description?.length > 0 && (
+    <section style="margin-top:64px; max-width: 72ch;">
+      <h2>{locale === 'en' ? 'Details' : '商品详情'}</h2>
+      <PortableText value={product.description} locale={locale} />
+    </section>
+  )}
+
+  {product.related?.length > 0 && (
+    <section style="margin-top:72px;">
+      <h2>{dict.related}</h2>
+      <div class="grid cols-4">
+        {product.related.map((r: any) => {
+          const rp = r.hasVariants ? r.minPrice : r.price
+          return (
+            <article class="card">
+              <a href={localePath(`/product/${r.slug.current}`, locale)}>
+                <div class="thumb">
+                  {r.image && (
+                    <img
+                      src={imgUrl(r.image, { w: 600, h: 600 })}
+                      alt={t(r.image?.alt, locale) || t(r.title, locale)}
+                      width="600"
+                      height="600"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  )}
+                </div>
+                <h3 class="name">{t(r.title, locale)}</h3>
+                <div class="price">{formatPrice(rp, r.currency)}</div>
+              </a>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .pdp {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 56px;
+    align-items: start;
+  }
+  .hero { aspect-ratio: 1/1; background: #f2f2ef; border-radius: 2px; overflow: hidden; }
+  .hero img { width: 100%; height: 100%; object-fit: cover; }
+  .ph { width: 100%; height: 100%; }
+  .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+  .thumbs img { aspect-ratio: 1/1; object-fit: cover; background: #f2f2ef; border-radius: 2px; }
+  .price-row { display: flex; align-items: baseline; font-variant-numeric: tabular-nums; }
+  .price { font-size: 22px; font-weight: 500; }
+  .opt-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .opt-values { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt-chip { border: 1px solid var(--line); padding: 7px 16px; font-size: 13px; border-radius: 2px; }
+  .cta {
+    width: 100%; padding: 15px; margin-top: 8px; font-size: 15px; cursor: pointer;
+    background: var(--accent); color: #fff; border: 0; border-radius: 2px; letter-spacing: .02em;
+  }
+  .cta:disabled { background: #d8d8d4; color: #8a8a85; cursor: not-allowed; }
+  .note { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 14px; }
+  .specs { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  .specs th { text-align: left; font-weight: 400; color: var(--muted); padding: 7px 0; width: 40%; }
+  .specs td { padding: 7px 0; }
+  .specs tr + tr { border-top: 1px solid var(--line); }
+  @media (max-width: 900px) {
+    .pdp { grid-template-columns: 1fr; gap: 28px; }
+    .thumbs { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>

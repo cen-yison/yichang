@@ -1,0 +1,118 @@
+---
+import { t, localeFromPath, localePath, ui, type Locale } from '../lib/i18n'
+
+interface Props {
+  title?: string
+  description?: string
+  locale?: Locale
+}
+
+const { title, description, locale: forced } = Astro.props
+const locale: Locale = forced ?? localeFromPath(Astro.url.pathname)
+const dict = ui[locale]
+const pathNoLocale = Astro.url.pathname.replace(/^\/en(?=\/|$)/, '') || '/'
+const altPath = locale === 'en' ? pathNoLocale : localePath(pathNoLocale, 'en')
+const pageTitle = title ? `${title} · ${dict.siteName}` : dict.siteName
+const desc = description ?? (locale === 'en' ? 'Independent store — objects for daily use.' : '独立站 · 日常器物')
+---
+
+<!doctype html>
+<html lang={locale === 'en' ? 'en' : 'zh-CN'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site ?? Astro.url).href} />
+    <link rel="alternate" hreflang={locale === 'en' ? 'zh-CN' : 'en'} href={altPath} />
+    <slot name="head" />
+    <style is:global>
+      :root {
+        --ink: #1a1a1a;
+        --muted: #6b6b6b;
+        --line: #e5e5e5;
+        --bg: #fdfdfb;
+        --accent: #1a1a1a;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: inherit; text-decoration: none; }
+      img { max-width: 100%; display: block; }
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+      header.site {
+        border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 10;
+        background: rgba(253,253,251,.9);
+        backdrop-filter: saturate(180%) blur(12px);
+      }
+      header.site .inner {
+        display: flex; align-items: center; justify-content: space-between;
+        height: 64px;
+      }
+      header.site nav { display: flex; gap: 28px; font-size: 14px; }
+      header.site nav a:hover { opacity: .6; }
+      .brand { font-weight: 600; letter-spacing: .08em; font-size: 15px; text-transform: uppercase; }
+      .lang { font-size: 13px; color: var(--muted); border: 1px solid var(--line);
+        padding: 4px 10px; border-radius: 999px; }
+      main { padding: 56px 0 96px; }
+      h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.25; margin: 0 0 16px; letter-spacing: -.01em; }
+      h2 { font-size: 20px; margin: 40px 0 16px; }
+      .muted { color: var(--muted); }
+      .grid { display: grid; gap: 32px 24px; }
+      .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+      .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 900px) {
+        .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+        .grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+      }
+      @media (max-width: 520px) {
+        .grid.cols-4, .grid.cols-3 { grid-template-columns: 1fr; }
+        main { padding: 32px 0 64px; }
+      }
+      .card a { display: block; }
+      .card .thumb {
+        aspect-ratio: 1/1; background: #f2f2ef; overflow: hidden; border-radius: 2px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .card .thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+      .card a:hover .thumb img { transform: scale(1.04); }
+      .card .name { margin: 12px 0 4px; font-size: 15px; }
+      .card .price { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+      .badge {
+        display: inline-block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+        border: 1px solid var(--line); padding: 2px 8px; border-radius: 999px; color: var(--muted);
+      }
+      .badge.out { color: #b23c3c; border-color: #f0d5d5; }
+      footer.site { border-top: 1px solid var(--line); padding: 32px 0; font-size: 13px; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <header class="site">
+      <div class="wrap inner">
+        <a class="brand" href={localePath('/', locale)}>{dict.siteName}</a>
+        <nav>
+          <a href={localePath('/products', locale)}>{dict.nav.products}</a>
+          <a href={localePath('/posts', locale)}>{dict.nav.posts}</a>
+        </nav>
+        <a class="lang" href={altPath}>{locale === 'en' ? '中文' : 'EN'}</a>
+      </div>
+    </header>
+    <main>
+      <div class="wrap">
+        <slot />
+      </div>
+    </main>
+    <footer class="site">
+      <div class="wrap">© {new Date().getFullYear()} {dict.siteName}</div>
+    </footer>
+  </body>
+</html>

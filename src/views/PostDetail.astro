@@ -1,0 +1,153 @@
+---
+import Base from '../layouts/Base.astro'
+import { getPostBySlug } from '../lib/queries'
+import { t, localeFromPath, localePath, ui } from '../lib/i18n'
+import { imgUrl } from '../lib/sanity'
+import PortableText from '../components/PortableText.astro'
+
+const { slug } = Astro.params
+const locale = localeFromPath(Astro.url.pathname)
+const dict = ui[locale]
+const post = await getPostBySlug(slug ?? '')
+
+if (!post) {
+  return Astro.redirect(localePath('/posts', locale), 302)
+}
+
+const metaTitle = t(post.seo?.metaTitle, locale) || t(post.title, locale)
+const metaDesc = t(post.seo?.metaDescription, locale) || t(post.excerpt, locale)
+const cover = post.image ?? post.seo?.ogImage
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(locale === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+// 结构化数据 —— Google 要这个才可能在搜索结果里出富摘要
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: metaTitle,
+  description: metaDesc,
+  datePublished: post.publishedAt,
+  dateModified: post._updatedAt,
+  inLanguage: locale === 'en' ? 'en' : 'zh-CN',
+  author: post.author?.name ? { '@type': 'Person', name: post.author.name } : undefined,
+  image: cover ? imgUrl(cover, { w: 1200, h: 630 }) : undefined,
+  publisher: { '@type': 'Organization', name: 'Yi Chang' },
+}
+---
+
+<Base title={metaTitle} description={metaDesc}>
+  <Fragment slot="head">
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content={metaTitle} />
+    <meta property="og:description" content={metaDesc} />
+    {cover && <meta property="og:image" content={imgUrl(cover, { w: 1200, h: 630 })} />}
+    {post.seo?.noIndex && <meta name="robots" content="noindex,nofollow" />}
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </Fragment>
+
+  <article class="post">
+    <header>
+      <div class="meta muted">
+        <a href={localePath('/posts', locale)}>{dict.nav.posts}</a>
+        <span> / </span>
+        <time datetime={post.publishedAt}>{fmtDate(post.publishedAt)}</time>
+        {post.category && (
+          <>
+            <span> · </span>
+            <span>{t(post.category.title, locale)}</span>
+          </>
+        )}
+        {post.readingMinutes && (
+          <span> · {post.readingMinutes} {locale === 'en' ? 'min read' : '分钟'}</span>
+        )}
+      </div>
+      <h1>{t(post.title, locale)}</h1>
+      {post.excerpt && <p class="lede muted">{t(post.excerpt, locale)}</p>}
+      {post.author && (
+        <div class="byline">
+          {post.author.avatar && (
+            <img
+              src={imgUrl(post.author.avatar, { w: 80, h: 80 })}
+              alt={post.author.name}
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+          )}
+          <div>
+            <div class="author-name">{post.author.name}</div>
+            {post.author.role && (
+              <div class="muted" style="font-size:12px;">{t(post.author.role, locale)}</div>
+            )}
+          </div>
+        </div>
+      )}
+    </header>
+
+    {cover && (
+      <figure class="cover">
+        <img
+          src={imgUrl(cover, { w: 1400 })}
+          srcset={[600, 900, 1400].map((w) => `${imgUrl(cover, { w })} ${w}w`).join(', ')}
+          sizes="(max-width:900px) 100vw, 72ch"
+          alt={t(cover?.alt, locale) || t(post.title, locale)}
+          width="1400"
+          height="800"
+          fetchpriority="high"
+          decoding="async"
+        />
+      </figure>
+    )}
+
+    <div class="body">
+      <PortableText value={post.body ?? []} locale={locale} />
+    </div>
+
+    {post.tags?.length ? (
+      <div class="tags">
+        {post.tags.map((tag: string) => (
+          <span class="badge">{tag}</span>
+        ))}
+      </div>
+    ) : null}
+  </article>
+
+  {post.related?.length > 0 && (
+    <section style="margin-top:72px; border-top:1px solid var(--line); padding-top:36px;">
+      <h2>{locale === 'en' ? 'Read next' : '接着读'}</h2>
+      <div class="rel">
+        {post.related.map((r: any) => (
+          <a href={localePath(`/posts/${r.slug.current}`, locale)}>
+            <h3>{t(r.title, locale)}</h3>
+            {r.excerpt && <p class="muted">{t(r.excerpt, locale)}</p>}
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .post { max-width: 72ch; margin: 0 auto; }
+  .post header { margin-bottom: 32px; }
+  .post .meta { font-size: 13px; }
+  .post h1 { font-size: clamp(26px, 3.6vw, 38px); margin: 14px 0 16px; }
+  .lede { font-size: 17px; line-height: 1.7; margin: 0; }
+  .byline { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
+  .byline img { border-radius: 50%; }
+  .author-name { font-size: 14px; }
+  .cover { margin: 0 0 40px; }
+  .cover img { width: 100%; border-radius: 2px; background: #f2f2ef; }
+  .body { font-size: 16.5px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 40px; }
+  .rel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .rel h3 { font-size: 15px; margin: 0 0 6px; font-weight: 500; }
+  .rel p { font-size: 13px; margin: 0; }
+  .rel a:hover h3 { opacity: .65; }
+  @media (max-width: 700px) { .rel { grid-template-columns: 1fr; } }
+</style>

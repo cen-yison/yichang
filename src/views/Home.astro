@@ -1,0 +1,103 @@
+---
+import Base from '../layouts/Base.astro'
+import { getFeaturedProducts, getFeaturedPosts } from '../lib/queries'
+import { t, localeFromPath, localePath, ui } from '../lib/i18n'
+import { imgUrl, formatPrice } from '../lib/sanity'
+
+const locale = localeFromPath(Astro.url.pathname)
+const dict = ui[locale]
+const products = await getFeaturedProducts(4)
+const posts = await getFeaturedPosts(3)
+---
+
+<Base>
+  <section style="padding: 24px 0 56px;">
+    <h1>
+      {locale === 'en'
+        ? 'Objects for daily use.'
+        : '日常器物。'}
+    </h1>
+    <p class="muted" style="max-width: 46ch; font-size: 16px;">
+      {locale === 'en'
+        ? 'Small-batch stoneware and goods, made to be used every day.'
+        : '小批量制作，为每天使用而做。'}
+    </p>
+  </section>
+
+  <section>
+    <h2>{dict.nav.products}</h2>
+    {products.length === 0 ? (
+      <p class="muted">{dict.noProducts}</p>
+    ) : (
+      <div class="grid cols-4">
+        {products.map((p) => {
+          const price = p.hasVariants ? p.minPrice : p.price
+          return (
+            <article class="card">
+              <a href={localePath(`/product/${p.slug.current}`, locale)}>
+                <div class="thumb">
+                  {p.image ? (
+                    <img
+                      src={imgUrl(p.image, { w: 600, h: 600 })}
+                      srcset={[400, 600, 900].map((w) => `${imgUrl(p.image, { w })} ${w}w`).join(', ')}
+                      sizes="(max-width:520px) 100vw, 25vw"
+                      alt={t(p.image?.alt, locale) || t(p.title, locale)}
+                      width="600"
+                      height="600"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : null}
+                </div>
+                <h3 class="name">{t(p.title, locale)}</h3>
+                <div class="price">
+                  {formatPrice(price, p.currency)}
+                  {p.hasVariants ? ` ${dict.from}` : ''}
+                </div>
+              </a>
+            </article>
+          )
+        })}
+      </div>
+    )}
+  </section>
+
+  <section style="margin-top: 72px;">
+    <a class="badge" href={localePath('/products', locale)}>
+      {locale === 'en' ? 'All products →' : '全部商品 →'}
+    </a>
+  </section>
+
+  {posts.length > 0 && (
+    <section style="margin-top: 80px; border-top: 1px solid var(--line); padding-top: 40px;">
+      <h2>{dict.nav.posts}</h2>
+      <div class="grid cols-3">
+        {posts.map((p) => (
+          <article class="card">
+            <a href={localePath(`/posts/${p.slug.current}`, locale)}>
+              {p.image && (
+                <div class="thumb">
+                  <img
+                    src={imgUrl(p.image, { w: 600, h: 400 })}
+                    alt={t(p.image?.alt, locale) || t(p.title, locale)}
+                    width="600"
+                    height="400"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+              )}
+              <h3 class="name">{t(p.title, locale)}</h3>
+              {p.excerpt && (
+                <p class="muted" style="font-size:13px; margin:4px 0 0;">{t(p.excerpt, locale)}</p>
+              )}
+            </a>
+          </article>
+        ))}
+      </div>
+      <a class="badge" style="margin-top:28px;" href={localePath('/posts', locale)}>
+        {locale === 'en' ? 'All posts →' : '全部文章 →'}
+      </a>
+    </section>
+  )}
+</Base>

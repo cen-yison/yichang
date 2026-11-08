@@ -1,0 +1,11 @@
+---
+// 静态构建：枚举所有商品 slug，Astro 为每个 slug 预渲染一个 HTML
+import ProductDetail from '../../views/ProductDetail.astro'
+import { getAllProductSlugs } from '../../lib/queries'
+
+export async function getStaticPaths() {
+  const slugs = await getAllProductSlugs()
+  return slugs.map((slug) => ({ params: { slug } }))
+}
+---
+<ProductDetail />

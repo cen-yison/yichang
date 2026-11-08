@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro'
+import { getProducts } from '../lib/queries'
+import { t, localeFromPath, localePath, ui } from '../lib/i18n'
+import { imgUrl, formatPrice } from '../lib/sanity'
+
+const locale = localeFromPath(Astro.url.pathname)
+const dict = ui[locale]
+const products = await getProducts()
+---
+
+<Base title={dict.nav.products}>
+  <h1>{dict.nav.products}</h1>
+  {products.length === 0 ? (
+    <p class="muted">{dict.noProducts}</p>
+  ) : (
+    <div class="grid cols-3" style="margin-top: 32px;">
+      {products.map((p) => {
+        const price = p.hasVariants ? p.minPrice : p.price
+        const soldOut = p.status === 'soldOut' || (p.hasVariants && (p.stockSum ?? 0) === 0)
+        return (
+          <article class="card">
+            <a href={localePath(`/product/${p.slug.current}`, locale)}>
+              <div class="thumb">
+                {p.image ? (
+                  <img
+                    src={imgUrl(p.image, { w: 700, h: 700 })}
+                    srcset={[400, 700, 1000].map((w) => `${imgUrl(p.image, { w })} ${w}w`).join(', ')}
+                    sizes="(max-width:520px) 100vw, 33vw"
+                    alt={t(p.image?.alt, locale) || t(p.title, locale)}
+                    width="700"
+                    height="700"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : null}
+              </div>
+              <h3 class="name">{t(p.title, locale)}</h3>
+              <div class="price">
+                {soldOut ? dict.soldOut : formatPrice(price, p.currency)}
+                {!soldOut && p.hasVariants ? ` ${dict.from}` : ''}
+              </div>
+            </a>
+          </article>
+        )
+      })}
+    </div>
+  )}
+</Base>

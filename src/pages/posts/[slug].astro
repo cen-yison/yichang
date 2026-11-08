@@ -1,0 +1,11 @@
+---
+// 静态构建：枚举所有文章 slug
+import PostDetail from '../../views/PostDetail.astro'
+import { getAllPostSlugs } from '../../lib/queries'
+
+export async function getStaticPaths() {
+  const slugs = await getAllPostSlugs()
+  return slugs.map((slug) => ({ params: { slug } }))
+}
+---
+<PostDetail />

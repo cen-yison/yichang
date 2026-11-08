@@ -1,0 +1,117 @@
+---
+import { t, type Locale } from '../lib/i18n'
+import { imgUrl } from '../lib/sanity'
+
+interface Props {
+  value: any[]
+  locale?: Locale
+}
+
+const { value, locale = 'zh' } = Astro.props
+
+const videoEmbed = (url: string) => {
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`
+  const bili = url.match(/bilibili\.com\/video\/(BV[\w]+)/)
+  if (bili) return `https://player.bilibili.com/player.html?bvid=${bili[1]}&high_quality=1`
+  const vimeo = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  return url
+}
+---
+
+{
+  value.map((block: any) => {
+    if (block._type === 'block') {
+      const children = (block.children ?? []).map((child: any) => {
+        let text: any = child.text ?? ''
+        const marks: string[] = child.marks ?? []
+        for (const mark of marks) {
+          const def = (block.markDefs ?? []).find((d: any) => d._key === mark)
+          if (def?._type === 'link') {
+            text = (
+              <a href={def.href} target={def.blank ? '_blank' : undefined} rel={def.blank ? 'noopener noreferrer' : undefined}>
+                {text}
+              </a>
+            )
+          } else if (mark === 'strong') text = <strong>{text}</strong>
+          else if (mark === 'em') text = <em>{text}</em>
+          else if (mark === 'underline') text = <u>{text}</u>
+          else if (mark === 'strike-through') text = <s>{text}</s>
+          else if (mark === 'code') text = <code>{text}</code>
+        }
+        return text
+      })
+
+      const style = block.style ?? 'normal'
+      if (style === 'h2') return <h2>{children}</h2>
+      if (style === 'h3') return <h3>{children}</h3>
+      if (style === 'blockquote') return <blockquote>{children}</blockquote>
+      if (block.listItem === 'bullet') return <li>{children}</li>
+      if (block.listItem === 'number') return <li>{children}</li>
+      return <p>{children}</p>
+    }
+
+    if (block._type === 'imageWithAlt') {
+      return (
+        <figure>
+          <img
+            src={imgUrl(block, { w: 1200 })}
+            srcset={[600, 900, 1200].map((w) => `${imgUrl(block, { w })} ${w}w`).join(', ')}
+            sizes="(max-width:900px) 100vw, 72ch"
+            alt={t(block.alt, locale)}
+            loading="lazy"
+            decoding="async"
+          />
+          {t(block.caption, locale) && <figcaption class="muted">{t(block.caption, locale)}</figcaption>}
+        </figure>
+      )
+    }
+
+    if (block._type === 'videoEmbed') {
+      return (
+        <figure class="video">
+          <iframe
+            src={videoEmbed(block.url)}
+            title={t(block.caption, locale) || 'video'}
+            frameborder="0"
+            allowfullscreen
+            loading="lazy"
+          />
+        </figure>
+      )
+    }
+
+    if (block._type === 'callout') {
+      return (
+        <aside class:list={['callout', block.tone ?? 'info']}>
+          {t(block.body, locale)}
+        </aside>
+      )
+    }
+
+    return null
+  })
+}
+
+<style>
+  :global(p) { margin: 0 0 1.1em; }
+  :global(h2) { margin: 1.8em 0 .6em; }
+  :global(h3) { margin: 1.5em 0 .5em; font-size: 17px; }
+  :global(blockquote) {
+    margin: 1.4em 0; padding-left: 18px; border-left: 2px solid var(--line);
+    color: var(--muted); font-style: italic;
+  }
+  :global(li) { margin: .3em 0; }
+  :global(figure) { margin: 1.8em 0; }
+  :global(figure img) { width: 100%; border-radius: 2px; }
+  :global(figcaption) { font-size: 13px; margin-top: 8px; }
+  :global(.video) { position: relative; padding-bottom: 56.25%; height: 0; }
+  :global(.video iframe) { position: absolute; inset: 0; width: 100%; height: 100%; }
+  :global(.callout) {
+    margin: 1.6em 0; padding: 14px 18px; font-size: 14px;
+    border-left: 3px solid var(--line); background: #f7f7f4;
+  }
+  :global(.callout.warn) { border-left-color: #d9a441; background: #fdf8ec; }
+  :global(.callout.success) { border-left-color: #5b9c6a; background: #f2f8f3; }
+</style>
