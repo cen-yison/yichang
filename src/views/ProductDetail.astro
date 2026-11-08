@@ -4,6 +4,7 @@ import { getProductBySlug } from '../lib/queries'
 import { t, localeFromPath, localePath, ui } from '../lib/i18n'
 import { imgUrl, formatPrice, minVariantPrice, totalStock } from '../lib/sanity'
 import PortableText from '../components/PortableText.astro'
+import TechSpecs from '../components/TechSpecs.astro'
 
 const locale = localeFromPath(Astro.url.pathname)
 const dict = ui[locale]
@@ -145,6 +146,9 @@ const ogImage = product.seo?.ogImage ?? mainImage
       <PortableText value={product.description} locale={locale} />
     </section>
   )}
+
+  {/* 灯带技术参数：无 ledStripSpec 时组件自己返回空，老商品不受影响 */}
+  <TechSpecs spec={product.ledStripSpec} locale={locale} />
 
   {product.related?.length > 0 && (
     <section style="margin-top:72px;">

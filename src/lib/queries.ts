@@ -55,6 +55,22 @@ export async function getProductBySlug(slug: string) {
   return client.fetch(
     `*[_type == "product" && slug.current == $slug][0]{
       ...,
+      // 灯带规格是 object，显式投影 12 个字段：靠 "..." 扩散容易在字段改名时静默丢数据
+      productFamily,
+      ledStripSpec{
+        chipModel,
+        ledType,
+        ledsPerMeter,
+        voltage,
+        powerPerMeter,
+        maxRunMeters,
+        colorTemps,
+        cri,
+        ipRating,
+        boardWidthMm,
+        cutLengthMm,
+        certifications
+      },
       "image": images[0],
       "minPrice": math::min(variants[].price),
       "stockSum": math::sum(variants[].stock),

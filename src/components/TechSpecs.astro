@@ -1,0 +1,50 @@
+---
+/**
+ * 灯带「技术参数」表。
+ * 只在 product.ledStripSpec 存在时由 ProductDetail 挂载；行数据全部来自 lib/ledStrip.ts，
+ * 这里只管排版，不做任何字段判断。
+ */
+import { ui, type Locale } from '../lib/i18n'
+import { buildLedStripRows, type LedStripSpec } from '../lib/ledStrip'
+
+interface Props {
+  spec?: LedStripSpec | null
+  locale?: Locale
+}
+
+const { spec, locale = 'zh' } = Astro.props
+const dict = ui[locale]
+const rows = buildLedStripRows(spec, locale)
+---
+
+{rows.length > 0 && (
+  <section class="tech-specs">
+    <h2>{dict.techSpecs}</h2>
+    <table>
+      <tbody>
+        {rows.map((row) => (
+          <tr>
+            <th scope="row">{row.label}</th>
+            <td>{row.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+)}
+
+<style>
+  .tech-specs { margin-top: 48px; max-width: 72ch; }
+  h2 { font-size: 20px; font-weight: 400; margin: 0 0 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th {
+    text-align: left; font-weight: 400; color: var(--muted);
+    padding: 8px 0; width: 42%; vertical-align: top;
+  }
+  td { padding: 8px 0; }
+  tr + tr { border-top: 1px solid var(--line); }
+  @media (max-width: 520px) {
+    th { width: 46%; }
+    table { font-size: 13px; }
+  }
+</style>
