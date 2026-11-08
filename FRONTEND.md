@@ -1,398 +1,673 @@
-# 前端维护手册
+# 前端开发说明
 
-Yi Chang 独立站前端。Astro 静态站 + Sanity 内容后端 + Netlify 托管 + GitHub 版本管理。
+Astro 7 静态站。内容来自 Sanity，托管在 Netlify，代码在 GitHub。
 
----
-
-## 一、入口汇总
-
-日常只会用到这五个地址。全部存书签即可。
-
-| 用途 | 地址 | 说明 |
-|---|---|---|
-| **官网** | https://yichang-store.netlify.app | 线上站点，用户看到的 |
-| **内容后台** | https://yichang.sanity.studio/ | 写文章、加商品。**日常 90% 的操作在这里** |
-| **部署后台** | https://app.netlify.com/projects/yichang-store | 看构建日志、回滚版本、绑域名 |
-| **代码仓库** | https://github.com/cen-yison/yichang | 改代码、看历史 |
-| **Sanity 项目** | https://www.sanity.io/manage/project/vk38187i | 数据集设置、CORS、token 管理 |
-
-### 需要记住的三个 ID
-
-| 名称 | 值 | 在哪用 |
-|---|---|---|
-| Sanity projectId | `vk38187i` | 代码里，不要改 |
-| Sanity dataset | `production` | 代码里，不要改 |
-| Netlify Site ID | `e8d67507-e985-4c15-827e-cf31377b2318` | 只在应急脚本里用 |
+本文只讲**前端开发**：代码怎么组织、怎么改、怎么调试、怎么发。内容编辑（写文章、上架商品）请直接看 Studio 内的字段提示，不在本文范围。
 
 ---
 
-## 二、日常维护：发布内容
+## 技术栈
 
-### 2.1 登录内容后台
-
-打开 https://yichang.sanity.studio/ ，用 Google / GitHub / 邮箱登录（和创建 Sanity 账号时用的方式一致）。
-
-左侧菜单有四个入口：
-
-```
-📄 文章 post      写博客、产品故事
-🛍 商品 product    上架商品
-🏷 分类 category   文章分类 / 商品分类（用「用途」字段区分）
-👤 作者 author     作者信息
-```
-
-### 2.2 发一篇文章
-
-1. 左侧点 **文章** → 右上角 **Create new**
-2. 填写：
-
-| 字段 | 必填 | 说明 |
+| 层 | 选型 | 说明 |
 |---|---|---|
-| 标题 | ✅ | 中文必填，英文可空（英文站会回退显示中文） |
-| Slug | ✅ | URL 地址。点右侧 Generate 从标题生成 |
-| 摘要 | — | 列表页和搜索结果里显示，建议 80–120 字 |
-| 封面图 | — | 点上传。**alt 文本必填**，否则保存报错 |
-| 正文 | — | 富文本。支持 h2/h3、引用、列表、图片、视频、提示框 |
-| 分类 | — | 下拉选，只显示「用途=文章分类」的项 |
-| 标签 | — | 输入后回车，多个 |
-| 作者 | — | 下拉选 |
-| 发布时间 | ✅ | 默认当前时间。**设成未来时间 = 定时发布**，时间到之前前端不显示 |
-| 首页推荐 | — | 打开后出现在首页文章区 |
-| 阅读时长 | — | 手填，留空则前端不显示这一行 |
-| 相关文章 | — | 最多 4 篇，留空则前端自动按同分类/同标签推荐 |
-| SEO | — | 留空会自动回退到标题和摘要，一般不用填 |
-
-3. 点右上角 **Publish** 发布
-4. **等 1 分钟左右**，网站自动更新
-
-### 2.3 上架一个商品
-
-1. 左侧点 **商品** → **Create new**
-2. 分成四个折叠区，从上往下填：
-
-**基本信息**
-| 字段 | 必填 | 说明 |
-|---|---|---|
-| 商品名 | ✅ | 中英双语 |
-| Slug | ✅ | URL |
-| 主 SKU | — | 有变体时作前缀用 |
-| 卖点一句话 | — | 商品卡片上显示，30–60 字 |
-| 分类 | — | 只显示「用途=商品分类」的项 |
-| 标签 / 首页推荐 | — | |
-
-**价格与库存**
-
-先决定这个商品**有没有多规格**：
-
-- **单规格**（一件商品一个价）：`启用多规格` 关着，直接填售价、划线原价、库存
-- **多规格**（颜色/尺码/容量组合）：打开 `启用多规格`，上面的售价/库存字段会自动隐藏，改为填下面两块：
-
-  > **规格选项**：先定义有哪些维度。比如「颜色」→ 米白 / 炭灰。每个可选值要填「显示值」（用户看到的）和「内部编码」（`cream`，用于生成 SKU，只能是英文数字）
-  >
-  > **变体列表**：为每个组合建一条，填 SKU、变体名、售价、划线价、库存、变体图
-
-⚠️ **变体 SKU 不能重复**，重复会被拦下。
-⚠️ 单规格商品的价格币种默认 **USD**，售价填 `28` 就显示 `$28`，不要填 `2800`。
-
-销售状态四选一：现货 / 预售 / 售罄 / 下架。
-- 选「下架」→ 前端**完全不显示**这个商品
-- 选「预售」→ 会多出一个「预售说明」字段
-
-**图片与详情**
-| 字段 | 说明 |
-|---|---|
-| 商品图 | 第一张是主图。建议至少 3 张，比例统一 1:1 或 4:5，最多 12 张。**每张的 alt 必填** |
-| 商品详情 | 富文本，和文章正文同一套编辑器 |
-| 参数表 | 键值对，前端渲染成表格（容量 / 350ml） |
-| 运费/发货说明 | 前端显示在「配送」区块 |
-
-3. 点 **Publish**
-4. 等 1 分钟
-
-### 2.4 改已有内容
-
-左侧列表点进去，改完点 **Publish**。**只保存不发布（Save）不会上线** —— 草稿态对前端不可见。
-
-### 2.5 删除
-
-打开文档 → 右上角 `⋮` → Delete。等 1 分钟，前端相关页面消失。
-
-> 如果商品被文章或别的商品引用着，删掉后会留下空引用。前端已有兜底（不显示空块），不会报错。
-
-### 2.6 发布后没更新？排查顺序
-
-| 检查 | 怎么做 |
-|---|---|
-| ① 真的点 Publish 了吗 | Studio 里文档右上角应显示 **Published**，不是 **Draft** |
-| ② 等够时间了吗 | 链路是 webhook → Netlify 构建 → CDN，正常 40–90 秒。高峰期可能 2 分钟 |
-| ③ 构建失败了吗 | 去 https://app.netlify.com/projects/yichang-store/deploys 看最新一次是不是红色 Failed，点进去看日志 |
-| ④ 浏览器缓存 | 强制刷新 `Ctrl+Shift+R` / `Cmd+Shift+R` |
-| ⑤ 发布时间设到未来了 | 回 Studio 检查 `发布时间` 字段 |
+| 框架 | Astro 7.4 | 静态输出，默认零 JS |
+| 内容 | Sanity（projectId `vk38187i`，dataset `production`） | 只读，匿名访问 |
+| 客户端 | `@sanity/client` 8.15 | 不装 `@sanity/astro`，见「踩过的坑」第 3 条 |
+| 图片 | `@sanity/image-url` 2.1 | CDN 裁剪 + webp 转换 |
+| 样式 | 原生 CSS，写在组件内 | 无 CSS 框架 |
+| 托管 | Netlify | 静态 CDN |
+| 构建 | `npm run build` → `dist/` | 10 个页面，约 5 秒 |
 
 ---
 
-## 三、发布链路是怎么跑的
+## 一、本地环境
 
-理解这条链路，出问题才知道去哪个后台看。
+### 1.1 Node 版本
 
-```
-┌──────────────────┐
-│ 你在 Studio 编辑  │
-│ 点 Publish       │
-└────────┬─────────┘
-         │ 内容写入 Sanity 数据集
-         ▼
-┌──────────────────┐
-│ Sanity webhook   │  document create/update/delete
-│ netlify-rebuild  │  排除 drafts.*
-└────────┬─────────┘
-         │ POST
-         ▼
-┌──────────────────┐
-│ Netlify Build    │  https://api.netlify.com/build_hooks/6aeffde6baa9f46ec4bfd57b
-│ Hook             │
-└────────┬─────────┘
-         │ 拉取 GitHub 仓库 cen-yison/yichang main 分支
-         ▼
-┌──────────────────┐
-│ Netlify 构建容器  │  npm ci && npm run build
-│ Node 22.23.4     │  产出 dist/
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Netlify CDN      │  全球分发，用户访问
-└──────────────────┘
+**必须 ≥ 22.23.4。** Astro 7 的硬要求。
+
+```bash
+node -v   # 应该 ≥ v22.23.4
 ```
 
-**关键点：整个过程不经过任何自有服务器。** 你现在这台机器关机、断网、重装，网站照常更新。
+⚠️ 版本不够时 `astro build` 会**打印 "Node.js vX is not supported by Astro" 然后 exit code 0** —— 看起来成功了，其实什么都没编译。这是最隐蔽的坑，先查版本再干别的。
 
-### 代码更新也一样
+用 apt 装的 nodejs 是 v12，不能用。需要自己装：
 
-```
-本地改代码 → git push main → Netlify 自动构建 → 上线
-```
-
-### 两条链路的关系
-
-- 改**内容** → webhook 触发
-- 改**代码** → push 触发
-- 两者互不冲突。如果同时发生，Netlify 会按顺序排队，最后完成的版本生效
-
----
-
-## 四、代码维护
-
-### 4.1 目录结构
-
-```
-yichang/
-├── src/
-│   ├── pages/            ← 路由。每个文件对应一个 URL
-│   │   ├── index.astro                   /
-│   │   ├── products/index.astro           /products/
-│   │   ├── product/[slug].astro           /product/xxx/ （构建时枚举所有商品）
-│   │   ├── posts/index.astro              /posts/
-│   │   ├── posts/[slug].astro             /posts/xxx/
-│   │   └── en/…                          所有英文路由，结构和上面完全对应
-│   │
-│   ├── views/            ← 页面真正的实现。中英文共用同一份
-│   │   ├── Home.astro
-│   │   ├── Products.astro
-│   │   ├── ProductDetail.astro
-│   │   ├── Posts.astro
-│   │   └── PostDetail.astro
-│   │
-│   ├── layouts/
-│   │   └── Base.astro    ← 全站骨架：<head>、导航、页脚、全局 CSS
-│   │
-│   ├── components/
-│   │   └── PortableText.astro  ← 富文本渲染器
-│   │
-│   └── lib/
-│       ├── sanity.ts     ← Sanity 客户端、图片 URL、价格格式化
-│       ├── queries.ts    ← 所有 GROQ 查询
-│       └── i18n.ts       ← 双语取值、UI 文案表
-│
-├── netlify.toml          ← 构建配置、缓存头、安全头
-├── astro.config.mjs      ← Astro 配置、sitemap、canonical 域名
-├── package.json
-├── README.md
-└── DEPLOY.md             ← 应急手动部署说明
+```bash
+curl -sSL https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz -o /tmp/node22.tar.xz
+tar -xJf /tmp/node22.tar.xz -C /opt
+mv /opt/node-v22.23.4-linux-x64 /opt/node22
+export PATH=/opt/node22/bin:$PATH
 ```
 
-**为什么要 `pages` + `views` 两层？** 因为中英文是两套 URL、一套模板。`pages` 只是三行的薄壳（import view 然后渲染），真正逻辑在 `views` 里，改一次两边都生效，不会漂移。
-
-### 4.2 本地开发
-
-需要 **Node ≥ 22.23.4**（Astro 7 硬要求，低了会静默失败）。
+### 1.2 起项目
 
 ```bash
 git clone https://github.com/cen-yison/yichang.git
 cd yichang
 npm install
-npm run dev      # http://localhost:4321
+npm run dev     # http://localhost:4321
 ```
-
-改代码后浏览器自动刷新。改 Sanity 里的内容，刷新页面也能看到（开发时 `useCdn: false`，不走缓存）。
 
 ```bash
-npm run build    # 构建到 dist/，线上就是这个产物
-npm run preview  # 本地预览构建结果
+npm run build    # 构建到 dist/
+npm run preview  # 本地预览构建产物
 ```
 
-### 4.3 常见改动
+dev 模式改代码会自动热更新。改 Sanity 里的内容，刷新页面即可看到（`useCdn: false`，不走缓存）。
 
-**改导航文字 / 按钮文案**
+### 1.3 类型检查
 
-`src/lib/i18n.ts` 里的 `ui` 对象，`zh` 和 `en` 两份都要改。
+```bash
+npx tsc --noEmit -p .
+```
+
+项目是 `strict` 模式，改了查询或类型后建议跑一次。
+
+---
+
+## 二、目录结构与职责
+
+```
+yichang/
+├── src/
+│   ├── pages/                      ← 路由层（薄壳，只有 4–11 行）
+│   │   ├── index.astro                    /
+│   │   ├── products/index.astro           /products/
+│   │   ├── product/[slug].astro           /product/:slug
+│   │   ├── posts/index.astro              /posts/
+│   │   ├── posts/[slug].astro             /posts/:slug
+│   │   └── en/                            英文路由，结构与上面一一对应
+│   │
+│   ├── views/                      ← 页面实现（中英共用）
+│   │   ├── Home.astro            103 行
+│   │   ├── Products.astro         49 行
+│   │   ├── ProductDetail.astro   212 行
+│   │   ├── Posts.astro            87 行
+│   │   └── PostDetail.astro      153 行
+│   │
+│   ├── layouts/
+│   │   └── Base.astro            118 行  全站骨架 + 全局 CSS
+│   │
+│   ├── components/
+│   │   └── PortableText.astro    162 行  富文本渲染器
+│   │
+│   └── lib/
+│       ├── sanity.ts              58 行  client / imgUrl / formatPrice
+│       ├── queries.ts            145 行  所有 GROQ 查询
+│       └── i18n.ts                62 行  双语取值 + UI 文案
+│
+├── netlify.toml         构建配置、缓存头、安全头
+├── astro.config.mjs     Astro 配置、sitemap、canonical 域名
+├── tsconfig.json
+└── package.json
+```
+
+### 2.1 为什么分 pages 和 views 两层
+
+因为中英文是**两套 URL、一套模板**。
+
+`src/pages/index.astro` 全文就这些：
+
+```astro
+---
+import Home from '../views/Home.astro'
+---
+<Home />
+```
+
+`src/pages/en/index.astro` 一模一样，只是路径深度不同：
+
+```astro
+---
+import Home from '../../views/Home.astro'
+---
+<Home />
+```
+
+真正的页面逻辑只在 `views/Home.astro` 里写一遍。改一次，中英文两边同时生效，**不会出现「中文改了英文忘了」**。
+
+语言从 URL 前缀推断，不靠 cookie 或 header：
+
+```ts
+// src/lib/i18n.ts
+localeFromPath('/en/product/x')  // → 'en'
+localeFromPath('/product/x')     // → 'zh'
+```
+
+这样 SEO 稳定、分享链接稳定、CDN 可以全量缓存。
+
+### 2.2 相对路径深度（最容易写错）
+
+`src/pages/` 下的 import 深度要数清楚：
+
+| 文件 | 到 `src/views/` 的相对路径 |
+|---|---|
+| `src/pages/index.astro` | `../views/` |
+| `src/pages/product/[slug].astro` | `../../views/` |
+| `src/pages/en/index.astro` | `../../views/` |
+| `src/pages/en/product/[slug].astro` | `../../../views/` |
+
+写错会报 `UNRESOLVED_IMPORT`，构建直接失败。这个错误信息很明确，好排查。
+
+---
+
+## 三、数据层
+
+所有 Sanity 查询集中在 `src/lib/queries.ts`。页面不直接写 GROQ。
+
+### 3.1 客户端
+
+```ts
+// src/lib/sanity.ts
+import { createClient } from '@sanity/client'
+
+export const client = createClient({
+  projectId: 'vk38187i',
+  dataset: 'production',
+  apiVersion: '2024-01-01',
+  useCdn: false,          // 见下方说明
+  perspective: 'published',
+})
+```
+
+**`useCdn: false` 是刻意的。** 静态构建只在构建时查一次数据，必须读到最新 —— 走 CDN 会拿到分钟级旧缓存，导致刚发布的商品在构建产物里不存在。代价是构建时多花几百毫秒，无所谓。
+
+### 3.2 查询设计原则
+
+**列表页只查卡片字段，不查正文块。**
+
+```ts
+const PRODUCT_CARD = `
+  _id, title, slug, shortDescription,
+  "image": images[0],
+  hasVariants, price, compareAtPrice, currency, status, featured,
+  "minPrice": math::min(variants[].price),
+  "stockSum": math::sum(variants[].stock),
+  "variantCount": count(variants),
+  "category": category->{ title, slug }
+`
+```
+
+`description`（富文本详情）和 `variants`（完整变体数组）都不查。列表页 12 个商品的话，这一条能省掉大量传输。
+
+**详情页一次查完所有关联数据**，不要瀑布式发请求：
+
+```ts
+export async function getProductBySlug(slug: string) {
+  return client.fetch(`*[_type == "product" && slug.current == $slug][0]{
+    ...,
+    "image": images[0],
+    "minPrice": math::min(variants[].price),
+    "stockSum": math::sum(variants[].stock),
+    "compareAt": coalesce(compareAtPrice, variants[price == math::min(^.variants[].price)][0].compareAtPrice),
+    "category": category->{ title, slug },
+    "related": *[_type == "product" && status != "archived" && _id != ^._id
+                 && category._ref == ^.category._ref] | order(_createdAt desc) [0...3] {${PRODUCT_CARD}}
+  }`, { slug })
+}
+```
+
+一个请求拿到：商品全部字段 + 主图 + 最低价 + 总库存 + 分类展开 + 相关商品。**一次往返，不是四次。**
+
+### 3.3 静态路径枚举
+
+`[slug]` 页面在 `getStaticPaths` 里枚举所有 slug，Astro 构建时逐个预渲染：
+
+```astro
+---
+// src/pages/product/[slug].astro
+import ProductDetail from '../../views/ProductDetail.astro'
+import { getAllProductSlugs } from '../../lib/queries'
+
+export async function getStaticPaths() {
+  const slugs = await getAllProductSlugs()
+  return slugs.map((slug) => ({ params: { slug } }))
+}
+---
+<ProductDetail />
+```
+
+**枚举时必须过滤掉不该出现的内容**，否则会生成可访问的页面：
+
+```ts
+// 排除 archived，否则下架商品的详情页仍能通过 URL 直接访问
+`*[_type == "product" && status != "archived" && defined(slug.current)].slug.current`
+
+// 只构建已到发布时间的文章，未来时间的（定时发布）不预渲染
+`*[_type == "post" && defined(slug.current) && defined(publishedAt) && publishedAt <= now()].slug.current`
+```
+
+这两处是曾经漏过的 bug，改查询时别退回去。
+
+### 3.4 新增一个查询
+
+```ts
+export async function getSomething() {
+  return client.fetch(`*[_type == "xxx"]{ ... }`)
+}
+```
+
+页面里 `import { getSomething } from '../lib/queries'`，在 frontmatter 顶层 `await`：
+
+```astro
+---
+const items = await getSomething()
+---
+```
+
+Astro 支持 top-level await。
+
+---
+
+## 四、双语处理
+
+### 4.1 取值函数
+
+```ts
+// src/lib/i18n.ts
+export const t = (field: Localized, locale: Locale = 'zh'): string => {
+  if (!field) return ''
+  const primary = field[locale]
+  if (primary && primary.trim()) return primary
+  return field.zh ?? field.en ?? ''    // 英文为空则回退中文
+}
+```
+
+Schema 里所有对外文案都是 `{ zh, en }` 对象：
+
+```ts
+title: { zh: '陶土马克杯', en: 'Clay Mug' }
+```
+
+页面里统一用 `t(product.title, locale)` 取值。**不要写 `product.title.zh`** —— 那样英文站会显示中文，且没有回退。
+
+### 4.2 链接生成
+
+```ts
+localePath('/product/clay-mug', 'en')  // → '/en/product/clay-mug'
+localePath('/product/clay-mug', 'zh')  // → '/product/clay-mug'
+```
+
+所有站内链接都用它包一层，否则英文页点进去会跳到中文页。
+
+### 4.3 UI 文案
+
+`src/lib/i18n.ts` 的 `ui` 对象，`zh` 和 `en` 两份：
 
 ```ts
 export const ui = {
-  zh: { addToCart: '加入购物车', ... },
-  en: { addToCart: 'Add to cart', ... },
-}
+  zh: { addToCart: '加入购物车', inStock: '现货', ... },
+  en: { addToCart: 'Add to cart', inStock: 'In stock', ... },
+} as const
 ```
 
-**改全站样式**
+页面里 `const dict = ui[locale]`，然后 `dict.addToCart`。
 
-`src/layouts/Base.astro` 里的 `<style is:global>`。设计变量在顶部：
+**加新文案时两份都要加**，否则 TypeScript 的 `as const` 会报错（这也是好事，强制同步）。
+
+---
+
+## 五、图片处理
+
+### 5.1 URL 生成
+
+```ts
+import { imgUrl } from '../lib/sanity'
+
+imgUrl(image, { w: 800, h: 800 })   // 裁剪 + 转 webp
+imgUrl(image, { w: 1200 })          // 只限宽，保持比例
+```
+
+内部固定 `auto('format').quality(78)`。`auto('format')` 让 Sanity 按浏览器 `Accept` 头返回 webp/avif。
+
+实测同一张 1200×1200 JPEG：原图 28KB → `?w=800&auto=format` 且浏览器支持 webp 时 **6KB**。
+
+### 5.2 srcset
+
+列表和详情页都给多档宽度：
+
+```astro
+<img
+  src={imgUrl(img, { w: 700, h: 700 })}
+  srcset={[400, 700, 1000].map((w) => `${imgUrl(img, { w })} ${w}w`).join(', ')}
+  sizes="(max-width:520px) 100vw, 33vw"
+  alt={t(img.alt, locale) || t(product.title, locale)}
+  width="700" height="700"
+  loading="lazy" decoding="async"
+/>
+```
+
+三个要点：
+
+1. **`width` / `height` 必须写死**，否则图片加载会跳版（CLS 指标变差）
+2. **`sizes` 要和 CSS 里实际的栅格宽度对上**，写错了浏览器会下载过大或过小的图
+3. **`alt` 一定要有**，schema 里 alt 是必填的，但取不到时用标题兜底
+
+详情页主图例外：不 lazy，加 `fetchpriority="high"`，因为它是 LCP 元素。
+
+---
+
+## 六、富文本渲染
+
+`src/components/PortableText.astro`。传入 block 数组和 locale。
+
+### 6.1 支持的块
+
+| block `_type` | 渲染成 |
+|---|---|
+| `block` + `style: normal` | `<p>` |
+| `block` + `style: h2` | `<h2>` |
+| `block` + `style: h3` | `<h3>` |
+| `block` + `style: blockquote` | `<blockquote>` |
+| `block` + `listItem: bullet` | `<ul><li>` |
+| `block` + `listItem: number` | `<ol><li>` |
+| `imageWithAlt` | `<figure><img>` + 可选 `<figcaption>` |
+| `videoEmbed` | 16:9 `<iframe>`（自动识别 YouTube / Bilibili / Vimeo） |
+| `callout` | `<aside>`，三种 tone |
+
+### 6.2 两个必须注意的实现细节
+
+**① 连续列表项要聚合成一个列表**
+
+Sanity 里每个列表项是一个独立的 `block`，带 `listItem: 'bullet'`。如果逐个渲染成 `<li>`，会得到一堆没有 `<ul>` 父元素的裸 `<li>` —— 非法 HTML，浏览器各自猜语义，缩进和序号都会乱。
+
+`PortableText.astro` 里先把连续同类型列表项聚合成段落，再整体输出 `<ul>`/`<ol>`。改这个文件时别把这个聚合逻辑去掉。
+
+**② 行内 marks 的顺序**
+
+Sanity 的 `child.marks` 是混合的：`['strong', 'linkKey123']`。其中 `link` 要去 `block.markDefs` 里按 `_key` 找定义。
+
+**必须先套完 decorator（strong/em/underline/…），最后再包 `<a>`。** 反过来的话，内层标签会覆盖掉链接。
+
+`PortableText.astro` 的 frontmatter 里用字符串拼接生成 HTML（Astro frontmatter 不能写 JSX），再 `set:html` 输出。所有文本都经过 `esc()` 转义。
+
+### 6.3 新增一种块类型
+
+1. 在 Studio 仓库的 `schemaTypes/objects/blockContent.ts` 里加 `defineArrayMember`
+2. `npx sanity deploy` 重新部署 Studio
+3. 在 `PortableText.astro` 里加对应的 `if (block._type === 'xxx')` 分支
+
+---
+
+## 七、样式
+
+### 7.1 全局变量
+
+`src/layouts/Base.astro` 的 `<style is:global>` 顶部：
 
 ```css
 :root {
-  --ink: #1a1a1a;     /* 主文字色 */
-  --muted: #6b6b6b;   /* 次要文字 */
-  --line: #e5e5e5;    /* 分割线 */
-  --bg: #fdfdfb;      /* 背景 */
-  --accent: #1a1a1a;  /* 按钮主色 */
+  --ink:    #1a1a1a;   /* 主文字 */
+  --muted:  #6b6b6b;   /* 次要文字 */
+  --line:   #e5e5e5;   /* 分割线 */
+  --bg:     #fdfdfb;   /* 背景 */
+  --accent: #1a1a1a;   /* 按钮主色 */
 }
 ```
 
-**改某个页面的布局**
+改配色只改这里。
 
-改 `src/views/` 里对应的文件。页面级样式写在该文件底部的 `<style>` 块（Astro 会自动作用域隔离，不会影响其他页面）。
+### 7.2 样式作用域
 
-**加一个新字段并显示出来**
+组件底部的 `<style>` 块默认是**作用域隔离**的，Astro 会自动加 `data-astro-cid-xxx` 属性。全局样式只在 `Base.astro` 里用 `is:global`。
 
-1. 在 `/root/sanity-studio/schemaTypes/` 里改 schema，然后 `npx sanity deploy` 重新部署 Studio
-2. 在 `src/lib/queries.ts` 对应查询里加上字段名
-3. 在 `src/views/` 对应页面里渲染它
+需要在组件内穿透到子元素时用 `:global(...)`：
 
-**加一个新页面**
-
-在 `src/pages/` 下建文件。要做英文版就在 `src/pages/en/` 下建同样的路径。
-
-**改 canonical 域名（绑域名之后）**
-
-不用改代码。Netlify 会自动注入 `URL` 环境变量，`astro.config.mjs` 优先读 `SITE_URL`，其次 `URL`。绑好域名后 Netlify 会自动把 `URL` 变成新域名。
-
-如果要在域名生效前就固定 canonical，去 Netlify 后台加环境变量 `SITE_URL=https://你的域名`。
-
-### 4.4 提交代码
-
-```bash
-git add -A
-git commit -m "描述你改了什么"
-git push origin main
+```css
+:global(figure img) { width: 100%; }
 ```
 
-推上去后 Netlify 自动构建，约 1 分钟上线。
+### 7.3 响应式断点
 
-**不需要在本机手动部署。**
+统一的三个断点：
+
+```css
+@media (max-width: 900px) { ... }   /* 平板：4 列 → 2 列 */
+@media (max-width: 700px) { ... }   /* 手机：横向排列 → 纵向 */
+@media (max-width: 520px) { ... }   /* 小屏：单列 */
+```
+
+栅格在 `Base.astro` 里定义了 `.grid.cols-3` / `.grid.cols-4`，移动端自动降级。
 
 ---
 
-## 五、故障处理
+## 八、SEO
 
-### 5.1 构建失败
+### 8.1 每页必备
 
-去 https://app.netlify.com/projects/yichang-store/deploys ，点最新一次红色的部署，看日志。
+`Base.astro` 统一输出：
 
-常见原因：
+- `<title>` — 取 `seo.metaTitle`，回退到内容标题
+- `<meta name="description">` — 取 `seo.metaDescription`，回退到摘要
+- `<link rel="canonical">` — 绝对地址
+- `<link rel="alternate" hreflang>` — 中英互指
 
-| 日志关键词 | 原因 | 处理 |
-|---|---|---|
-| `Node.js vX is not supported by Astro` | Node 版本不够 | 检查 `netlify.toml` 里 `NODE_VERSION = "22.23.4"` 是否还在 |
-| `Unable to access repository` | Git 连接断了 | 去 Project configuration → Developer settings → Continuous deployment 重新授权 |
-| `GROQ query parse error` | 查询写错了 | 是 `queries.ts` 的语法问题，需要改代码 |
-| `Cannot find module` | `package.json` 和 `package-lock.json` 不同步 | 本地跑 `npm install` 后提交 `package-lock.json` |
+### 8.2 canonical 域名
 
-**回滚**：deploys 列表里找上一个成功的部署，点 **Publish deploy**，30 秒生效。
+```js
+// astro.config.mjs
+const site =
+  process.env.SITE_URL ||          // 显式指定，优先级最高
+  process.env.URL ||               // Netlify 自动注入，绑自定义域名后自动变
+  process.env.DEPLOY_PRIME_URL ||  // 预览部署
+  'https://yichang-store.netlify.app'
+```
 
-### 5.2 网页 404
+绑域名后**不用改代码** —— Netlify 会把 `URL` 换成新域名。要提前固定就在 Netlify 后台加 `SITE_URL` 环境变量。
 
-| 情况 | 原因 |
+### 8.3 结构化数据
+
+文章页输出 JSON-LD：
+
+```astro
+<Fragment slot="head">
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+</Fragment>
+```
+
+`jsonLd` 是 `BlogPosting` 类型，含 headline / description / datePublished / author / image。`Base.astro` 里有 `<slot name="head" />` 用来插这类页面级 head 标签。
+
+### 8.4 sitemap
+
+`@astrojs/sitemap` 自动生成 `sitemap-index.xml`，含 hreflang 标注。不用手动维护。
+
+### 8.5 noIndex
+
+Schema 里 `seo.noIndex` 为 true 时，页面输出 `<meta name="robots" content="noindex,nofollow">`。
+
+---
+
+## 九、构建与部署
+
+### 9.1 输出模式
+
+`output: 'static'`。所有页面在构建时预渲染成 HTML。
+
+**没有任何 `<script src>`** —— 商品页、文章页都是纯 HTML，首屏不需要等 JS。实测 TTFB 1.6ms（本地静态服务），gzip 后首页 2.0K、商品页 2.9K、文章页 3.5K。
+
+以后要加交互（购物车、筛选），用 Astro 的 island 单独挂载，不要整体切到 SSR。
+
+### 9.2 配置
+
+```toml
+# netlify.toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22.23.4"
+
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+```
+
+`_astro/` 下的文件名带 hash，所以可以永久缓存。
+
+### 9.3 两条自动部署链路
+
+```
+① 改代码
+   git push origin main
+     → Netlify 检测到 push
+     → npm ci && npm run build
+     → 上线（约 1 分钟）
+
+② 改内容
+   Studio 点 Publish
+     → Sanity webhook (netlify-rebuild)
+     → Netlify Build Hook
+     → 同上
+```
+
+两条都**不经过任何自有服务器**。
+
+### 9.4 Netlify 构建环境的两个注意点
+
+**① 不要在 Netlify 里设 `NODE_ENV=production`**
+
+设了之后 `npm ci` 会跳过 `devDependencies`，TypeScript 之类的东西装不上。本地也是同理，如果环境里 `NODE_ENV=production`，用：
+
+```bash
+npm install --include=dev
+```
+
+**② Node 版本在 `netlify.toml` 里锁死**
+
+`NODE_VERSION = "22.23.4"`。Netlify 默认版本可能不够 Astro 7 的要求。
+
+### 9.5 部署失败怎么查
+
+去 Netlify 项目的 deploys 页面，点红色那次看日志。
+
+| 关键词 | 原因 |
 |---|---|
-| 首页 404 | 部署失败，去 Netlify 看日志 |
-| 某个商品页 404 | 该商品状态是「下架」，或 slug 改了但旧链接还在 |
-| 英文页 404 | `src/pages/en/` 下缺少对应文件 |
+| `Node.js vX is not supported by Astro` | `NODE_VERSION` 被改了 |
+| `Unable to access repository` | Git 授权断了，重新 Link repository |
+| `GROQ query parse error` | `queries.ts` 语法错，看报错指出的行 |
+| `Cannot find module` | `package-lock.json` 没同步，本地 `npm install` 后提交 |
 
-### 5.3 内容改了但网站不变
+**回滚**：deploys 列表找上一个成功的，点 **Publish deploy**，30 秒生效。
 
-按「2.6 发布后没更新」的顺序排查。
+### 9.6 紧急手动部署
 
-如果 Netlify 那边根本没收到构建请求，检查 Sanity webhook 是否还在：
-https://www.sanity.io/manage/project/vk38187i/api/webhooks
-
-应该有 `netlify-rebuild`，状态 enabled，指向 `https://api.netlify.com/build_hooks/6aeffde6baa9f46ec4bfd57b`。
-
-### 5.4 图片不显示
-
-- **Studio 里能看到图，网页上没有** → 检查该图片的 alt 是否为空（alt 必填，为空会导致校验失败）
-- **图片裂开** → 打开浏览器控制台看 `cdn.sanity.io` 的请求状态码。403 说明数据集权限变了
-
-### 5.5 需要紧急发布（Netlify Git 集成故障）
-
-见 `DEPLOY.md`。里面有恢复手动 API 部署的完整步骤。
+见 `DEPLOY.md`。里面有恢复 API 直传脚本的步骤。
 
 ---
 
-## 六、安全与凭据
+## 十、踩过的坑
 
-### 6.1 绝对不要做的事
+按踩到的顺序记录，改相关代码前先读一遍。
 
-- ❌ 不要把任何 token 写进代码、提交到 Git
-- ❌ 不要把 Sanity write token 放进前端（前端只用匿名读）
-- ❌ 不要在聊天工具、文档里明文贴 token
+### 1. Node 版本不够时 build 静默失败
 
-### 6.2 现有凭据分布
+`astro build` 打印 `Node.js vX is not supported by Astro` 然后 **exit code 0**。CI 里会被当成成功，实际什么都没产出。
 
-| 凭据 | 存在哪 | 谁能拿到 |
-|---|---|---|
-| Sanity Studio 登录态 | 浏览器 cookie | 只有你 |
-| Sanity write token | — | **不需要长期存在**。Studio 不依赖它 |
-| Netlify 账号 | 浏览器登录态 | 只有你 |
-| GitHub 账号 | 浏览器登录态 | 只有你 |
-| Netlify PAT | **已吊销** | — |
+→ 构建脚本里先 `node -v` 校验，或依赖 `netlify.toml` 的 `NODE_VERSION`。
 
-**现在没有任何长期有效的 API token 存在任何地方。** 这是最安全的状态。
+### 2. `useCdn: true` 导致构建拿到旧数据
 
-### 6.3 前端读数据不需要 token
+静态构建只查一次，CDN 缓存会导致刚发布的内容不在产物里。症状：Studio 里明明改了，网站没变。
 
-Sanity 数据集 `production` 的 ACL 是 `public`，任何人可以匿名**读**。
+→ `useCdn: false`。
 
-写入只能通过 Studio 的登录态。所以：
-- 如果有人抄走前端代码，也拿不到后台
-- 前端能读到的数据，本来就是公开内容
+### 3. 不要装 `@sanity/astro`
 
-### 6.4 历史遗留
+它是一个 Astro integration，会把整个 `sanity` 包（含 Studio、React）拉进前端依赖 —— 895MB。而我们是纯静态站，Studio 单独部署在 sanity.studio，前端只需要 `@sanity/client`（205MB）。
 
-Git 历史里有两个旧提交曾经包含一个 Netlify PAT（提交 `530720a`、`2681669`）。该 token 已于 2026-11-08 吊销，无法再使用。
+而且 `@sanity/astro@3.6.0` 的依赖链在新版 npm 上解析失败（找不到 `@sanity/cli@^8.27.0`）。
 
-不需要改写历史 —— token 已失效，force push 的风险大于收益。
+→ 直接用 `@sanity/client` + `@sanity/image-url`，不经过 integration。
+
+### 4. 列表项被渲染成裸 `<li>`
+
+Sanity 每个列表项是独立的 block。逐个渲染 `<li>` 会得到没有 `<ul>` 父元素的非法 HTML。浏览器渲染结果不可预测，缩进会乱。
+
+→ `PortableText.astro` 里把连续 `listItem` 聚合成一个列表元素再输出。
+
+### 5. 行内 marks 顺序错了会丢链接
+
+先包 `<a>` 再套 `<strong>`，内层标签会覆盖掉链接。必须反过来。
+
+→ 先套 decorator，最后包 `<a>`。
+
+### 6. frontmatter 里不能写 JSX
+
+Astro 的 `---` 之间是纯 TypeScript，写 `<div>` 会报 `PARSE_ERROR: Unterminated regular expression`。
+
+→ frontmatter 里生成 HTML 字符串，模板里用 `<Fragment set:html={...} />`。注意手动转义。
+
+### 7. `getStaticPaths` 忘了过滤 archived
+
+下架商品的详情页仍会被预渲染，能通过 URL 直接访问。文章也一样，未来时间的文章会提前泄露。
+
+→ 枚举 slug 时带上 `status != "archived"` 和 `publishedAt <= now()`。
+
+### 8. GROQ 里没有 `order()` 函数
+
+想取「最低价变体的划线价」，写 `variants[order(price asc)][0]` 会报 `Undefined function "order"`。
+
+→ 用筛选代替排序：`variants[price == math::min(^.variants[].price)][0]`
+
+### 9. `npx sanity dev` 和 `astro dev` 只监听 IPv6
+
+日志说 `http://localhost:3333`，但 `curl 127.0.0.1:3333` 是 connection refused。`ss -ltnp` 会显示 `[::1]:3333`。
+
+→ 用 `http://[::1]:PORT/` 或 `localhost` 访问。
+
+### 10. 相对 import 深度容易数错
+
+`pages/en/product/[slug].astro` 到 `src/views/` 是 `../../../views/`，不是 `../../`。错了报 `UNRESOLVED_IMPORT`。
+
+→ 建新页面时对着表格抄，别凭感觉。
 
 ---
 
-## 七、快速参考
+## 十一、代码风格约定
 
-| 我想… | 去哪 |
+- **TypeScript strict**，`any` 只用在 Sanity 返回的富文本 / 图片对象上（它们的类型太啰嗦，性价比低）
+- **组件 props 用 `interface Props`** 显式声明
+- **CSS 用原生**，不引框架。样式写在使用处，作用域自动隔离
+- **文案不进组件**，全部放 `i18n.ts`（双语必须同步）
+- **查询不进页面**，全部放 `queries.ts`
+- **提交信息用英文**，`feat:` / `fix:` / `docs:` / `chore:` 前缀
+
+---
+
+## 十二、速查
+
+```bash
+# 起本地开发
+export PATH=/opt/node22/bin:$PATH
+npm run dev
+
+# 类型检查
+node node_modules/typescript/bin/tsc --noEmit -p .
+
+# 构建 + 本地预览
+npm run build
+npm run preview
+
+# 发布（自动构建）
+git add -A && git commit -m "..." && git push origin main
+```
+
+| 我想改… | 改哪个文件 |
 |---|---|
-| 发文章 | https://yichang.sanity.studio/ → 文章 |
-| 上架商品 | https://yichang.sanity.studio/ → 商品 |
-| 看网站 | https://yichang-store.netlify.app |
-| 看部署失败原因 | https://app.netlify.com/projects/yichang-store/deploys |
-| 回滚到旧版本 | 同上，找绿色部署点 Publish deploy |
-| 改代码 | `git push origin main` |
-| 绑域名 | Netlify → Domain management |
-| 改字段结构 | 改 `schemaTypes/` → `npx sanity deploy` |
-| 紧急手动部署 | 见 `DEPLOY.md` |
+| 导航 / 按钮文案 | `src/lib/i18n.ts` |
+| 配色 / 全站字体 | `src/layouts/Base.astro` 的 `:root` |
+| 首页 | `src/views/Home.astro` |
+| 商品列表 | `src/views/Products.astro` |
+| 商品详情 | `src/views/ProductDetail.astro` |
+| 文章列表 | `src/views/Posts.astro` |
+| 文章详情 | `src/views/PostDetail.astro` |
+| 富文本渲染 | `src/components/PortableText.astro` |
+| 查询字段 | `src/lib/queries.ts` |
+| 图片尺寸 / 价格格式 | `src/lib/sanity.ts` |
+| canonical 域名 | `astro.config.mjs` 或 Netlify 环境变量 |
+| 加新页面 | `src/pages/` + 对应 `src/views/` |
+| 加新字段 | 先改 schema（Studio 仓库）→ 再改 `queries.ts` → 再改 view |
