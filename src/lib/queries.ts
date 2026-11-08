@@ -68,7 +68,10 @@ export async function getProductBySlug(slug: string) {
 }
 
 export async function getAllProductSlugs(): Promise<string[]> {
-  const rows = await client.fetch(`*[_type == "product" && defined(slug.current)].slug.current`)
+  // 必须排除 archived，否则下架商品仍然会被预渲染出一个可访问的详情页
+  const rows = await client.fetch(
+    `*[_type == "product" && status != "archived" && defined(slug.current)].slug.current`,
+  )
   return rows ?? []
 }
 
@@ -132,7 +135,10 @@ export async function getPostBySlug(slug: string) {
 }
 
 export async function getAllPostSlugs(): Promise<string[]> {
-  const rows = await client.fetch(`*[_type == "post" && defined(slug.current)].slug.current`)
+  // 只构建已到发布时间的文章；设为未来时间的文章不预渲染，到点后下次构建才出现
+  const rows = await client.fetch(
+    `*[_type == "post" && defined(slug.current) && defined(publishedAt) && publishedAt <= now()].slug.current`,
+  )
   return rows ?? []
 }
 
